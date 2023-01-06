@@ -2,6 +2,7 @@ from django.db import models
 
 
 class TestCase(models.Model):
+    # TODO: make stuff unique (case_id, ...)
     case_id = models.CharField(max_length=8)
     section = models.CharField(max_length=255)
     section_hierachy = models.CharField(max_length=255)
@@ -11,13 +12,25 @@ class TestCase(models.Model):
 
 
 class TestRun(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    ENV_DEVELOPMENT = "D"
+    ENV_STAGING = "S"
+    ENV_LIVE = "L"
+    ENVIRONMENT_CHOICES = [
+        (ENV_DEVELOPMENT, "Development"),
+        (ENV_STAGING, "Staging"),
+        (ENV_LIVE, "Live"),
+    ]
     title = models.CharField(max_length=255)
     description = models.CharField(max_length=500)
+    environment = models.CharField(
+        max_length=1, choices=ENVIRONMENT_CHOICES, default=ENV_DEVELOPMENT
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 class TestRunCase(models.Model):
+    # TODO: unique together test_run test_case
     UNTESTED = "U"
     PASSED = "P"
     FAILED = "F"
