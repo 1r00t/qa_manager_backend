@@ -1,8 +1,25 @@
 from typing import List
 from django.db import models
+from django.template.defaultfilters import slugify
+
+
+class Project(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    slug = models.SlugField(unique=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        return super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return self.name
 
 
 class Section(models.Model):
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="sections"
+    )
     parent = models.ForeignKey(
         "self",
         default=None,
@@ -28,7 +45,7 @@ class Section(models.Model):
 
     @property
     def full_section_hierachy(self) -> str:
-        return "/".join(self.section_hierachy)
+        return f"/{'/'.join(self.section_hierachy)}"
 
     def __str__(self) -> str:
         return self.full_section_hierachy
@@ -56,6 +73,9 @@ class TestRun(models.Model):
         (ENV_STAGING, "Staging"),
         (ENV_LIVE, "Live"),
     ]
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, related_name="testruns"
+    )
     title = models.CharField(max_length=255)
     description = models.CharField(max_length=500)
     environment = models.CharField(
