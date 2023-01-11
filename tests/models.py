@@ -1,6 +1,7 @@
 from typing import List
 from django.db import models
 from django.template.defaultfilters import slugify
+from django.utils.translation import gettext_lazy as _
 
 
 class Project(models.Model):
@@ -17,9 +18,6 @@ class Project(models.Model):
 
 
 class Section(models.Model):
-    project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, related_name="sections"
-    )
     parent = models.ForeignKey(
         "self",
         default=None,
@@ -52,11 +50,22 @@ class Section(models.Model):
 
 
 class TestCase(models.Model):
+    class TestType(models.TextChoices):
+        NONE = "N", _("None")
+        SMOKE = "S", _("Smoke")
+        FUNCTIONAL = "F", _("Functional")
+
     case_id = models.CharField(max_length=8, unique=True)
+    title = models.CharField(max_length=500)
+    is_automation = models.BooleanField(default=False)
     section = models.ForeignKey(
         Section, on_delete=models.SET_NULL, null=True, default=None
     )
-    title = models.CharField(max_length=500)
+    expected_result = models.CharField(max_length=500, blank=True)
+    preconditions = models.CharField(max_length=500, blank=True)
+    test_type = models.CharField(
+        max_length=1, choices=TestType.choices, default=TestType.NONE, name="type"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -65,21 +74,18 @@ class TestCase(models.Model):
 
 
 class TestRun(models.Model):
-    ENV_DEVELOPMENT = "D"
-    ENV_STAGING = "S"
-    ENV_LIVE = "L"
-    ENVIRONMENT_CHOICES = [
-        (ENV_DEVELOPMENT, "Development"),
-        (ENV_STAGING, "Staging"),
-        (ENV_LIVE, "Live"),
-    ]
+    class Environment(models.TextChoices):
+        DEVELOPMENT = "D", _("Development")
+        STAGING = "S", _("Staging")
+        LIVE = "L", _("Live")
+
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="testruns"
     )
     title = models.CharField(max_length=255)
     description = models.CharField(max_length=500)
     environment = models.CharField(
-        max_length=1, choices=ENVIRONMENT_CHOICES, default=ENV_DEVELOPMENT
+        max_length=1, choices=Environment.choices, default=Environment.DEVELOPMENT
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -89,22 +95,18 @@ class TestRun(models.Model):
 
 
 class TestRunCase(models.Model):
-    # TODO: unique together test_run test_case
-    UNTESTED = "U"
-    PASSED = "P"
-    FAILED = "F"
-    SKIPPED = "S"
-    RETEST = "R"
-    STATUS_CHOICES = [
-        (UNTESTED, "Untested"),
-        (PASSED, "Passed"),
-        (FAILED, "Failed"),
-        (SKIPPED, "Skipped"),
-        (RETEST, "Retest"),
-    ]
+    class Status(models.TextChoices):
+        UNTESTED = "U", _("Untested")
+        PASSED = "P", _("Passed")
+        FAILED = "F", _("Failed")
+        SKIPPED = "S", _("Skipped")
+        RETEST = "R", _("Retest")
+
     test_run = models.ForeignKey(TestRun, on_delete=models.CASCADE)
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE)
-    status = models.CharField(max_length=1, choices=STATUS_CHOICES, default=UNTESTED)
+    status = models.CharField(
+        max_length=1, choices=Status.choices, default=Status.UNTESTED
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -8,7 +8,7 @@ class ProjectAdmin(admin.ModelAdmin):
 
 
 class SectionAdmin(admin.ModelAdmin):
-    list_display = ("project", "name", "full_section_hierachy")
+    list_display = ("name", "full_section_hierachy")
 
 
 class TestCaseAdmin(admin.ModelAdmin):
