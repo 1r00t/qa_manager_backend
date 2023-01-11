@@ -102,10 +102,18 @@ class TestRunCase(models.Model):
         SKIPPED = "S", _("Skipped")
         RETEST = "R", _("Retest")
 
+    class Priority(models.TextChoices):
+        LOW = "L", _("Low")
+        MEDIUM = "M", _("Medium")
+        HIGH = "H", _("High")
+
     test_run = models.ForeignKey(TestRun, on_delete=models.CASCADE)
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE)
     status = models.CharField(
         max_length=1, choices=Status.choices, default=Status.UNTESTED
+    )
+    priority = models.CharField(
+        max_length=1, choices=Priority.choices, default=Priority.MEDIUM
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
