@@ -25,7 +25,9 @@ class Section(models.Model):
 
 class TestCase(models.Model):
     case_id = models.CharField(max_length=8, unique=True)
-    section = models.ForeignKey(Section, on_delete=models.SET_NULL)
+    section = models.ForeignKey(
+        Section, on_delete=models.SET_NULL, null=True, default=None
+    )
     title = models.CharField(max_length=500)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
