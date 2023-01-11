@@ -1,3 +1,4 @@
+from typing import List
 from django.db import models
 
 
@@ -15,12 +16,22 @@ class Section(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=("parent", "name"), name="unique section for parent"
+                fields=("parent_id", "name"), name="unique section for parent"
             )
         ]
 
+    @property
+    def section_hierachy(self) -> List[str]:
+        if self.parent:
+            yield from self.parent.section_hierachy
+        yield self.name
+
+    @property
+    def full_section_hierachy(self) -> str:
+        return "/".join(self.section_hierachy)
+
     def __str__(self) -> str:
-        return self.name
+        return self.full_section_hierachy
 
 
 class TestCase(models.Model):
