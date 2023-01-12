@@ -9,8 +9,7 @@ class Project(models.Model):
     slug = models.SlugField(unique=True)
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
+        self.slug = slugify(self.name)
         return super().save(*args, **kwargs)
 
     def __str__(self) -> str:
