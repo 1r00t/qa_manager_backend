@@ -10,26 +10,28 @@ from ninja.errors import ValidationError
 from .models import TestCase, TestRun, TestRunCase, Project
 from .schema import *
 
-router = Router()
+project_router = Router()
+testcase_router = Router()
+testrun_router = Router()
 
 
 """
 Project
 """
 # project list
-@router.get("/projects", response=List[ProjectOut])
+@project_router.get("", response=List[ProjectOut])
 def project_list(request):
     return Project.objects.all()
 
 
 # project detail
-@router.get("/projects/{project_id}", response=ProjectOut)
+@project_router.get("{project_id}", response=ProjectOut)
 def project_detail(request, project_id: int):
     return get_object_or_404(Project, id=project_id)
 
 
 # project create
-@router.post("/projects", response=ProjectOut)
+@project_router.post("", response=ProjectOut)
 def project_create(request, data: ProjectIn):
     try:
         project = Project.objects.create(name=data.name)
@@ -39,7 +41,7 @@ def project_create(request, data: ProjectIn):
 
 
 # project update
-@router.patch("/projects/{project_id}", response=ProjectOut)
+@project_router.patch("{project_id}", response=ProjectOut)
 def project_update(request, project_id: int, payload: ProjectIn):
     project = get_object_or_404(Project, id=project_id)
     project.name = payload.name
@@ -51,7 +53,7 @@ def project_update(request, project_id: int, payload: ProjectIn):
 
 
 # project delete
-@router.delete("/projects/{project_id}")
+@project_router.delete("{project_id}")
 def project_delete(request, project_id: int):
     get_object_or_404(Project, id=project_id).delete()
     return {"success": True}
@@ -61,20 +63,20 @@ def project_delete(request, project_id: int):
 Testcases
 """
 # list all testcases
-@router.get("/cases", response=List[TestCaseOut])
+@testcase_router.get("", response=List[TestCaseOut])
 @paginate
 def testcases_list(request):
     return TestCase.objects.all()
 
 
 # testcase detail
-@router.get("/cases/{case_id}", response=TestCaseOut)
+@testcase_router.get("{case_id}", response=TestCaseOut)
 def testcase_detail(request, case_id: int):
     return get_object_or_404(TestCase, id=case_id)
 
 
 # create new testcase
-@router.post("/cases", response=TestCaseOut)
+@testcase_router.post("", response=TestCaseOut)
 def testcase_create(request, data: TestCaseIn):
     try:
         testcase = TestCase.objects.create(
@@ -92,7 +94,7 @@ def testcase_create(request, data: TestCaseIn):
 
 
 # update testcase
-@router.patch("/cases/{case_id}", response=TestCaseOut)
+@testcase_router.patch("{case_id}", response=TestCaseOut)
 def testcase_update(request, case_id: int, payload: TestCasePatch):
     testcase = get_object_or_404(TestCase, id=case_id)
     for attr, value in payload.dict().items():
@@ -106,7 +108,7 @@ def testcase_update(request, case_id: int, payload: TestCasePatch):
 
 
 # delete testcase
-@router.delete("/cases/{case_id}")
+@testcase_router.delete("{case_id}")
 def testcase_delete(request, case_id: int):
     get_object_or_404(TestCase, id=case_id).delete()
     return {"success": True}
@@ -116,14 +118,14 @@ def testcase_delete(request, case_id: int):
 Testruns
 """
 # list all testruns
-@router.get("/runs", response=List[TestRunOut])
+@testrun_router.get("", response=List[TestRunOut])
 def testrun_list(request):
     testruns = TestRun.objects.all()
     return testruns
 
 
 # create new testrun
-@router.post("/runs", response=TestRunOut)
+@testrun_router.post("", response=TestRunOut)
 def testrun_create(request, data: TestRunIn):
     testrun = TestRun.objects.create(
         title=data.title, description=data.description, environment=data.environment
@@ -132,7 +134,7 @@ def testrun_create(request, data: TestRunIn):
 
 
 # add TestRunCase to testrun
-@router.patch("/runs/{run_id}", response=TestRunOut)
+@testrun_router.patch("{run_id}", response=TestRunOut)
 def testrun_add_cases(request, run_id: int, case_id_list: List[int]):
     testrun = get_object_or_404(TestRun, id=run_id)
     testcases = TestCase.objects.in_bulk(case_id_list)
@@ -145,7 +147,7 @@ def testrun_add_cases(request, run_id: int, case_id_list: List[int]):
 
 
 # delete testrun
-@router.delete("/runs/{run_id}")
+@testrun_router.delete("{run_id}")
 def testrun_delete(request, run_id: int):
     testrun = get_object_or_404(TestRun, id=run_id)
     testrun.delete()
