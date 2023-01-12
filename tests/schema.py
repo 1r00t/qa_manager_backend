@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from typing import List
+from typing import List, Union
 
 from ninja import Field, Schema
 
@@ -19,6 +19,16 @@ class SectionOut(Schema):
     id: int
     section_hierachy: List[str]
     full_section_hierachy: str
+
+
+class SectionIn(Schema):
+    name: str
+    parent_id: Union[int, None]
+
+
+class SectionPatch(Schema):
+    name: str = None
+    parent_id: Union[int, None] = None
 
 
 class TestCaseIn(Schema):
@@ -58,15 +68,15 @@ class TestCaseOut(Schema):
 class TestRunCaseOut(Schema):
     id: int
     case_id: str = Field(None, alias="test_case.case_id")
-    section: str = Field(None, alias="test_case.section")
-    section_hierachy: str = Field(None, alias="test_case.section_hierachy")
+    section: SectionOut = Field(None, alias="test_case.section")
     title: str = Field(None, alias="test_case.title")
-    status: str
+    status: str = Field(None, alias="get_status_display")
     created_at: datetime
     updated_at: datetime
 
 
 class TestRunIn(Schema):
+    project_id: int
     title: str
     description: str
     environment: str
@@ -74,9 +84,10 @@ class TestRunIn(Schema):
 
 class TestRunOut(Schema):
     id: int
+    project: ProjectOut
     title: str
     description: str
-    environment: str
+    environment: str = Field(None, alias="get_environment_display")
     testruncase_set: List[TestRunCaseOut]
     created_at: datetime
     updated_at: datetime

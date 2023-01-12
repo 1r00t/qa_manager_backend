@@ -7,10 +7,11 @@ from ninja import Router
 from ninja.pagination import paginate
 from ninja.errors import ValidationError
 
-from .models import TestCase, TestRun, TestRunCase, Project
+from .models import TestCase, TestRun, TestRunCase, Project, Section
 from .schema import *
 
 project_router = Router()
+section_router = Router()
 testcase_router = Router()
 testrun_router = Router()
 
@@ -42,9 +43,9 @@ def project_create(request, data: ProjectIn):
 
 # project update
 @project_router.patch("{project_id}", response=ProjectOut)
-def project_update(request, project_id: int, payload: ProjectIn):
+def project_update(request, project_id: int, data: ProjectIn):
     project = get_object_or_404(Project, id=project_id)
-    project.name = payload.name
+    project.name = data.name
     try:
         project.save()
     except IntegrityError:
@@ -60,9 +61,60 @@ def project_delete(request, project_id: int):
 
 
 """
+Section
+"""
+# section list
+@section_router.get("", response=List[SectionOut])
+@paginate
+def section_list(request):
+    return Section.objects.all()
+
+
+# section detail
+@section_router.get("{section_id}", response=SectionOut)
+def section_detail(request, section_id: int):
+    return get_object_or_404(Section, id=section_id)
+
+
+# section create
+@section_router.post("", response=SectionOut)
+def section_create(request, data: SectionIn):
+    try:
+        section = Section.objects.create(**data.dict())
+    except IntegrityError:
+        raise ValidationError(
+            ["A Section with that name already exists in that parent!"]
+        )
+    return section
+
+
+# section update
+@section_router.patch("{section_id}", response=SectionOut)
+def section_update(request, section_id: int, data: SectionPatch):
+    section = get_object_or_404(Section, id=section_id)
+    for attr, value in data.dict().items():
+        if value:
+            setattr(section, attr, value)
+    try:
+        section.save()
+    except IntegrityError:
+        raise ValidationError(
+            ["A Section with that name already exists in that parent!"]
+        )
+    return section
+
+
+# section delete
+@section_router.delete("{section_id}")
+def section_delete(request, section_id: int):
+    get_object_or_404(Section, id=section_id).delete()
+    return {"success": True}
+
+
+"""
 Testcases
 """
-# list all testcases
+# testcase list
 @testcase_router.get("", response=List[TestCaseOut])
 @paginate
 def testcases_list(request):
@@ -75,29 +127,21 @@ def testcase_detail(request, case_id: int):
     return get_object_or_404(TestCase, id=case_id)
 
 
-# create new testcase
+# testcase create
 @testcase_router.post("", response=TestCaseOut)
 def testcase_create(request, data: TestCaseIn):
     try:
-        testcase = TestCase.objects.create(
-            case_id=data.case_id,
-            title=data.title,
-            is_automation=data.is_automation,
-            section_id=data.section_id,
-            expected_result=data.expected_result,
-            preconditions=data.preconditions,
-            type=data.type,
-        )
+        testcase = TestCase.objects.create(**data.dict())
     except IntegrityError:
         raise ValidationError(["A testcase with that ID does already exist!"])
     return testcase
 
 
-# update testcase
+# testcase update
 @testcase_router.patch("{case_id}", response=TestCaseOut)
-def testcase_update(request, case_id: int, payload: TestCasePatch):
+def testcase_update(request, case_id: int, data: TestCasePatch):
     testcase = get_object_or_404(TestCase, id=case_id)
-    for attr, value in payload.dict().items():
+    for attr, value in data.dict().items():
         if value:
             setattr(testcase, attr, value)
     try:
@@ -107,7 +151,7 @@ def testcase_update(request, case_id: int, payload: TestCasePatch):
     return testcase
 
 
-# delete testcase
+# testcase delete
 @testcase_router.delete("{case_id}")
 def testcase_delete(request, case_id: int):
     get_object_or_404(TestCase, id=case_id).delete()
@@ -117,24 +161,28 @@ def testcase_delete(request, case_id: int):
 """
 Testruns
 """
-# list all testruns
+# testrun list
 @testrun_router.get("", response=List[TestRunOut])
 def testrun_list(request):
     testruns = TestRun.objects.all()
     return testruns
 
 
-# create new testrun
+# testrun detail
+@testrun_router.get("{run_id}", response=TestRunOut)
+def testrun_detail(request, run_id: int):
+    return get_object_or_404(TestRun, id=run_id)
+
+
+# testrun create
 @testrun_router.post("", response=TestRunOut)
 def testrun_create(request, data: TestRunIn):
-    testrun = TestRun.objects.create(
-        title=data.title, description=data.description, environment=data.environment
-    )
+    testrun = TestRun.objects.create(**data.dict())
     return testrun
 
 
-# add TestRunCase to testrun
-@testrun_router.patch("{run_id}", response=TestRunOut)
+# testrun add TestRunCases
+@testrun_router.patch("{run_id}/add-cases", response=TestRunOut)
 def testrun_add_cases(request, run_id: int, case_id_list: List[int]):
     testrun = get_object_or_404(TestRun, id=run_id)
     testcases = TestCase.objects.in_bulk(case_id_list)
@@ -146,9 +194,19 @@ def testrun_add_cases(request, run_id: int, case_id_list: List[int]):
     return testrun
 
 
-# delete testrun
+# testrun remove TestRunCases
+@testrun_router.patch("{run_id}/remove-cases", response=List[int])
+def testrun_remove_cases(request, run_id: int, case_id_list: List[int]):
+    testruncases = TestRunCase.objects.filter(
+        test_run_id=run_id, test_case_id__in=case_id_list
+    )
+    removed_ids = list(testruncases.values_list("id", flat=True))
+    testruncases.delete()
+    return removed_ids
+
+
+# testrun delete
 @testrun_router.delete("{run_id}")
 def testrun_delete(request, run_id: int):
-    testrun = get_object_or_404(TestRun, id=run_id)
-    testrun.delete()
+    get_object_or_404(TestRun, id=run_id).delete()
     return {"success": True}
