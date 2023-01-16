@@ -174,6 +174,12 @@ def testrun_detail(request, run_id: int):
     return get_object_or_404(TestRun, id=run_id)
 
 
+# testruns by project
+@testrun_router.get("project/{project_slug}", response=List[TestRunOut])
+def testrun_by_project(request, project_slug: str):
+    return get_object_or_404(Project, slug=project_slug).testruns
+
+
 # testrun create
 @testrun_router.post("", response=TestRunOut)
 def testrun_create(request, data: TestRunIn):
