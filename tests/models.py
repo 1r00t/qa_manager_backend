@@ -35,6 +35,13 @@ class Section(models.Model):
         ]
 
     @property
+    def all_child_testcases(self):
+        if self.children:
+            for child in self.children.all():
+                yield from child.all_child_testcases
+        yield self.testcase_set.all()
+
+    @property
     def section_hierachy(self) -> List[str]:
         if self.parent:
             yield from self.parent.section_hierachy
@@ -50,9 +57,9 @@ class Section(models.Model):
 
 class TestCase(models.Model):
     class TestType(models.TextChoices):
-        NONE = "N", _("None")
-        SMOKE = "S", _("Smoke")
-        FUNCTIONAL = "F", _("Functional")
+        NONE = "none", _("None")
+        SMOKE = "smoke", _("Smoke")
+        FUNCTIONAL = "functional", _("Functional")
 
     case_id = models.CharField(max_length=8, unique=True)
     title = models.CharField(max_length=500)
@@ -63,7 +70,10 @@ class TestCase(models.Model):
     expected_result = models.CharField(max_length=500, blank=True)
     preconditions = models.CharField(max_length=500, blank=True)
     test_type = models.CharField(
-        max_length=1, choices=TestType.choices, default=TestType.NONE, name="type"
+        choices=TestType.choices,
+        default=TestType.NONE,
+        name="type",
+        max_length=max(len(v) for v in TestType.values),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -74,9 +84,9 @@ class TestCase(models.Model):
 
 class TestRun(models.Model):
     class Environment(models.TextChoices):
-        DEVELOPMENT = "D", _("Development")
-        STAGING = "S", _("Staging")
-        LIVE = "L", _("Live")
+        DEVELOPMENT = "dev", _("Development")
+        STAGING = "staging", _("Staging")
+        LIVE = "live", _("Live")
 
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="testruns"
@@ -84,7 +94,9 @@ class TestRun(models.Model):
     title = models.CharField(max_length=255)
     description = models.CharField(max_length=500)
     environment = models.CharField(
-        max_length=1, choices=Environment.choices, default=Environment.DEVELOPMENT
+        choices=Environment.choices,
+        default=Environment.DEVELOPMENT,
+        max_length=max(len(v) for v in Environment.values),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -93,27 +105,32 @@ class TestRun(models.Model):
         return self.title
 
 
-class TestRunCase(models.Model):
+class TestResult(models.Model):
     class Status(models.TextChoices):
-        UNTESTED = "U", _("Untested")
-        PASSED = "P", _("Passed")
-        FAILED = "F", _("Failed")
-        SKIPPED = "S", _("Skipped")
-        RETEST = "R", _("Retest")
+        UNTESTED = "untested", _("Untested")
+        PASSED = "passed", _("Passed")
+        FAILED = "failed", _("Failed")
+        SKIPPED = "skipped", _("Skipped")
+        RETEST = "retest", _("Retest")
 
     class Priority(models.TextChoices):
-        LOW = "L", _("Low")
-        MEDIUM = "M", _("Medium")
-        HIGH = "H", _("High")
+        LOW = "low", _("Low")
+        MEDIUM = "medium", _("Medium")
+        HIGH = "high", _("High")
 
     test_run = models.ForeignKey(TestRun, on_delete=models.CASCADE)
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE)
     status = models.CharField(
-        max_length=1, choices=Status.choices, default=Status.UNTESTED
+        choices=Status.choices,
+        default=Status.UNTESTED,
+        max_length=max(len(v) for v in Status.values),
     )
     priority = models.CharField(
-        max_length=1, choices=Priority.choices, default=Priority.MEDIUM
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+        max_length=max(len(v) for v in Priority.values),
     )
+    details = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -1,13 +1,14 @@
 from typing import List
-from django.db import IntegrityError
 
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
+from django.db.models import Q, Value, IntegerField
 
 from ninja import Router
 from ninja.pagination import paginate
 from ninja.errors import ValidationError
 
-from .models import TestCase, TestRun, TestRunCase, Project, Section
+from .models import TestCase, TestRun, TestResult, Project, Section
 from .schema import *
 
 project_router = Router()
@@ -26,7 +27,7 @@ def project_list(request):
 
 
 # project detail
-@project_router.get("{project_id}", response=ProjectOut)
+@project_router.get("{project_id}/", response=ProjectOut)
 def project_detail(request, project_id: int):
     return get_object_or_404(Project, id=project_id)
 
@@ -42,7 +43,7 @@ def project_create(request, data: ProjectIn):
 
 
 # project update
-@project_router.patch("{project_id}", response=ProjectOut)
+@project_router.patch("{project_id}/", response=ProjectOut)
 def project_update(request, project_id: int, data: ProjectIn):
     project = get_object_or_404(Project, id=project_id)
     project.name = data.name
@@ -54,7 +55,7 @@ def project_update(request, project_id: int, data: ProjectIn):
 
 
 # project delete
-@project_router.delete("{project_id}")
+@project_router.delete("{project_id}/")
 def project_delete(request, project_id: int):
     get_object_or_404(Project, id=project_id).delete()
     return {"success": True}
@@ -65,13 +66,18 @@ Section
 """
 # section list
 @section_router.get("", response=List[SectionOut])
-@paginate
 def section_list(request):
     return Section.objects.all()
 
 
+# section tree
+@section_router.get("tree/", response=List[SectionTreeOut])
+def section_tree(request):
+    return Section.objects.filter(parent=None)
+
+
 # section detail
-@section_router.get("{section_id}", response=SectionOut)
+@section_router.get("{section_id}/", response=SectionOut)
 def section_detail(request, section_id: int):
     return get_object_or_404(Section, id=section_id)
 
@@ -89,7 +95,7 @@ def section_create(request, data: SectionIn):
 
 
 # section update
-@section_router.patch("{section_id}", response=SectionOut)
+@section_router.patch("{section_id}/", response=SectionOut)
 def section_update(request, section_id: int, data: SectionPatch):
     section = get_object_or_404(Section, id=section_id)
     for attr, value in data.dict().items():
@@ -105,7 +111,7 @@ def section_update(request, section_id: int, data: SectionPatch):
 
 
 # section delete
-@section_router.delete("{section_id}")
+@section_router.delete("{section_id}/")
 def section_delete(request, section_id: int):
     get_object_or_404(Section, id=section_id).delete()
     return {"success": True}
@@ -116,15 +122,41 @@ Testcases
 """
 # testcase list
 @testcase_router.get("", response=List[TestCaseOut])
-@paginate
+@paginate()
 def testcases_list(request):
     return TestCase.objects.all()
 
 
+@testcase_router.post("by_id/", response=List[TestCaseOut])
+@paginate()
+def testcases_by_id(request, testcase_ids: List[int]):
+    return TestCase.objects.filter(id__in=testcase_ids)
+
+
+@testcase_router.post("search/", response=List[TestCaseOut])
+def testcases_search(request, query: str):
+    # TODO: when using postgres use this search! Or even better, look at django search docs
+    # testcases = TestCase.objects.filter(title__unaccent__lower__trigram_similar=query)
+    testcases = TestCase.objects.filter(
+        Q(title__icontains=query) | Q(section__name__icontains=query)
+    )
+    return testcases
+
+
 # testcase detail
-@testcase_router.get("{case_id}", response=TestCaseOut)
+@testcase_router.get("{case_id}/", response=TestCaseOut)
 def testcase_detail(request, case_id: int):
     return get_object_or_404(TestCase, id=case_id)
+
+
+@testcase_router.get("section/{section_id}/", response=List[TestCaseOut])
+def testcases_by_section(request, section_id: int):
+    section = get_object_or_404(Section, id=section_id)
+    testcases = []
+    for testcases_queryset in section.all_child_testcases:
+        for testcase in testcases_queryset:
+            testcases.append(testcase)
+    return testcases
 
 
 # testcase create
@@ -138,7 +170,7 @@ def testcase_create(request, data: TestCaseIn):
 
 
 # testcase update
-@testcase_router.patch("{case_id}", response=TestCaseOut)
+@testcase_router.patch("{case_id}/", response=TestCaseOut)
 def testcase_update(request, case_id: int, data: TestCasePatch):
     testcase = get_object_or_404(TestCase, id=case_id)
     for attr, value in data.dict().items():
@@ -152,7 +184,7 @@ def testcase_update(request, case_id: int, data: TestCasePatch):
 
 
 # testcase delete
-@testcase_router.delete("{case_id}")
+@testcase_router.delete("{case_id}/")
 def testcase_delete(request, case_id: int):
     get_object_or_404(TestCase, id=case_id).delete()
     return {"success": True}
@@ -169,13 +201,13 @@ def testrun_list(request):
 
 
 # testrun detail
-@testrun_router.get("{run_id}", response=TestRunOut)
+@testrun_router.get("{run_id}/", response=TestRunOut)
 def testrun_detail(request, run_id: int):
     return get_object_or_404(TestRun, id=run_id)
 
 
 # testruns by project
-@testrun_router.get("project/{project_slug}", response=List[TestRunOut])
+@testrun_router.get("project/{project_slug}/", response=List[TestRunOut])
 def testrun_by_project(request, project_slug: str):
     return get_object_or_404(Project, slug=project_slug).testruns
 
@@ -187,32 +219,32 @@ def testrun_create(request, data: TestRunIn):
     return testrun
 
 
-# testrun add TestRunCases
-@testrun_router.patch("{run_id}/add-cases", response=TestRunOut)
+# testrun add testresults
+@testrun_router.patch("{run_id}/add-cases/", response=TestRunOut)
 def testrun_add_cases(request, run_id: int, case_id_list: List[int]):
     testrun = get_object_or_404(TestRun, id=run_id)
     testcases = TestCase.objects.in_bulk(case_id_list)
-    testruncases = [
-        TestRunCase(test_run_id=run_id, test_case_id=value.id)
+    testresults = [
+        TestResult(test_run_id=run_id, test_case_id=value.id)
         for value in testcases.values()
     ]
-    TestRunCase.objects.bulk_create(testruncases)
+    TestResult.objects.bulk_create(testresults)
     return testrun
 
 
-# testrun remove TestRunCases
-@testrun_router.patch("{run_id}/remove-cases", response=List[int])
+# testrun remove testresults
+@testrun_router.patch("{run_id}/remove-cases/", response=List[int])
 def testrun_remove_cases(request, run_id: int, case_id_list: List[int]):
-    testruncases = TestRunCase.objects.filter(
+    testresults = TestResult.objects.filter(
         test_run_id=run_id, test_case_id__in=case_id_list
     )
-    removed_ids = list(testruncases.values_list("id", flat=True))
-    testruncases.delete()
+    removed_ids = list(testresults.values_list("id", flat=True))
+    testresults.delete()
     return removed_ids
 
 
 # testrun delete
-@testrun_router.delete("{run_id}")
+@testrun_router.delete("{run_id}/")
 def testrun_delete(request, run_id: int):
     get_object_or_404(TestRun, id=run_id).delete()
     return {"success": True}

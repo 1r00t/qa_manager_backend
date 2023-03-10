@@ -4,6 +4,8 @@ from typing import List, Union
 
 from ninja import Field, Schema
 
+from .models import TestRun, TestCase
+
 
 class ProjectOut(Schema):
     id: int
@@ -21,6 +23,15 @@ class SectionOut(Schema):
     full_section_hierachy: str
 
 
+class SectionTreeOut(Schema):
+    id: int
+    name: str
+    children: List["SectionTreeOut"]
+
+
+SectionTreeOut.update_forward_refs()
+
+
 class SectionIn(Schema):
     name: str
     parent_id: Union[int, None]
@@ -31,6 +42,10 @@ class SectionPatch(Schema):
     parent_id: Union[int, None] = None
 
 
+class TestCaseIdsIn(Schema):
+    ids: List[int] = None
+
+
 class TestCaseIn(Schema):
     case_id: str
     title: str
@@ -38,7 +53,7 @@ class TestCaseIn(Schema):
     section_id: int
     expected_result: str
     preconditions: str
-    type: str
+    type: TestCase.TestType
 
 
 class TestCasePatch(Schema):
@@ -49,7 +64,7 @@ class TestCasePatch(Schema):
     section_id: int = None
     exected_result: str = None
     preconditions: str = None
-    type: str = None
+    type: TestCase.TestType = None
 
 
 class TestCaseOut(Schema):
@@ -65,12 +80,13 @@ class TestCaseOut(Schema):
     updated_at: datetime
 
 
-class TestRunCaseOut(Schema):
+class TestResultOut(Schema):
     id: int
     case_id: str = Field(None, alias="test_case.case_id")
     section: SectionOut = Field(None, alias="test_case.section")
     title: str = Field(None, alias="test_case.title")
     status: str = Field(None, alias="get_status_display")
+    details: str
     created_at: datetime
     updated_at: datetime
 
@@ -79,7 +95,7 @@ class TestRunIn(Schema):
     project_id: int
     title: str
     description: str
-    environment: str
+    environment: TestRun.Environment
 
 
 class TestRunOut(Schema):
@@ -88,6 +104,6 @@ class TestRunOut(Schema):
     title: str
     description: str
     environment: str = Field(None, alias="get_environment_display")
-    testruncase_set: List[TestRunCaseOut]
+    testresult_set: List[TestResultOut]
     created_at: datetime
     updated_at: datetime
