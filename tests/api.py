@@ -127,18 +127,22 @@ def testcases_list(request):
     return TestCase.objects.all()
 
 
+# testcases by id
 @testcase_router.post("by_id/", response=List[TestCaseOut])
 @paginate()
 def testcases_by_id(request, testcase_ids: List[int]):
     return TestCase.objects.filter(id__in=testcase_ids)
 
 
+# testcases search
 @testcase_router.post("search/", response=List[TestCaseOut])
 def testcases_search(request, query: str):
     # TODO: when using postgres use this search! Or even better, look at django search docs
     # testcases = TestCase.objects.filter(title__unaccent__lower__trigram_similar=query)
     testcases = TestCase.objects.filter(
-        Q(title__icontains=query) | Q(section__name__icontains=query)
+        Q(title__icontains=query)
+        | Q(section__name__icontains=query)
+        | Q(case_id__icontains=query)
     )
     return testcases
 
